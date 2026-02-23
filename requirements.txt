@@ -11,4 +11,4 @@ pandas
 numpy
 Pillow
 audio-recorder-streamlit
-streamlit
+streamlit>=1.42.0
