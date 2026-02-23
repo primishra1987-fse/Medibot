@@ -333,7 +333,7 @@ def voice_chat(audio_filepath, chat_history):
     if chat_history is None:
         chat_history = []
     if audio_filepath is None:
-        chat_history.append({"role": "assistant", "content": "⚠️ Please record your symptoms using the microphone first."})
+        chat_history.append({"role": "assistant", "content": "⚠️ Please record or upload an audio file with your symptoms first."})
         return chat_history, None
     try:
         transcript = transcribe_audio(audio_filepath)
@@ -396,9 +396,9 @@ with gr.Blocks(
 
         # Tab 2: Voice Input
         with gr.Tab("🎙️ Voice Input"):
-            gr.Markdown("### Speak Your Symptoms\nRecord via microphone, then click **Submit Voice Input**.\n*Powered by OpenAI Whisper*")
+            gr.Markdown("### Speak Your Symptoms\n**Record** via microphone or **upload** an audio file (WAV, MP3, M4A), then click **Submit Voice Input**.\n*Powered by OpenAI Whisper*")
             voice_chatbot = gr.Chatbot(label="Voice Conversation", height=400, type="messages")
-            voice_audio = gr.Audio(sources=["microphone"], type="filepath", label="🎙️ Record Symptoms")
+            voice_audio = gr.Audio(sources=["microphone", "upload"], type="filepath", label="🎙️ Record or Upload Audio")
             with gr.Row():
                 voice_submit = gr.Button("▶️ Submit Voice Input", variant="primary", size="lg")
                 voice_clear = gr.Button("🗑️ Clear")
