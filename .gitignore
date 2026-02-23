@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# Environment
+.env
+*.env
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+~$*
+
+# Gradio
+.gradio/
+flagged/
+
+# Claude Code
+.claude/
