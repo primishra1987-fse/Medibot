@@ -255,23 +255,32 @@ def encode_image_to_base64(image_path: str, max_size: int = 1024) -> str:
 
 
 def analyze_skin_condition(image_path: str) -> str:
-    """Analyze a skin condition image using GPT-4o-mini vision."""
+    """Analyze a skin condition image using GPT-4o-mini vision via direct OpenAI client."""
     b64 = encode_image_to_base64(image_path)
-    message = HumanMessage(content=[
-        {"type": "text", "text": (
-            "You are MediBot, a medical AI assistant with expertise in dermatology. "
-            "Analyze this image of a skin condition and provide:\n\n"
-            "1. **Possible Conditions** — 2-3 most likely skin conditions with brief reasoning\n"
-            "2. **Key Visual Observations** — Color, texture, pattern, distribution\n"
-            "3. **Estimated Severity** — 🟢 Mild / 🟡 Moderate / 🔴 Severe\n"
-            "4. **Recommended Actions** — Practical self-care and whether to see a doctor\n"
-            "5. **When to Seek Immediate Help** — Red flags requiring urgent attention\n\n"
-            "⚠️ DISCLAIMER: This is an AI visual assessment for educational purposes only. "
-            "Always consult a qualified dermatologist for accurate diagnosis."
-        )},
-        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "high"}},
-    ])
-    return llm.invoke([message]).content
+    client = OpenAI()
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": (
+                    "You are MediBot, a medical AI assistant with expertise in dermatology. "
+                    "Analyze this image of a skin condition and provide:\n\n"
+                    "1. **Possible Conditions** - 2-3 most likely skin conditions with brief reasoning\n"
+                    "2. **Key Visual Observations** - Color, texture, pattern, distribution\n"
+                    "3. **Estimated Severity** - Mild / Moderate / Severe\n"
+                    "4. **Recommended Actions** - Practical self-care and whether to see a doctor\n"
+                    "5. **When to Seek Immediate Help** - Red flags requiring urgent attention\n\n"
+                    "DISCLAIMER: This is an AI visual assessment for educational purposes only. "
+                    "Always consult a qualified dermatologist for accurate diagnosis."
+                )},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "high"}},
+            ],
+        }],
+        max_tokens=1024,
+        temperature=0,
+    )
+    return response.choices[0].message.content
 
 
 def skin_analysis_with_followup(image_path: str, agent, thread_id: str = "gradio_skin") -> str:

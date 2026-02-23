@@ -249,28 +249,37 @@ def transcribe_audio(audio_bytes: bytes) -> str:
 
 
 def analyze_skin_image(image_bytes: bytes, llm) -> str:
-    """Analyze skin condition image using GPT-4o-mini vision."""
+    """Analyze skin condition image using GPT-4o-mini vision via direct OpenAI client."""
     img = Image.open(io.BytesIO(image_bytes))
     img.thumbnail((1024, 1024))
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85)
     b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
-    message = HumanMessage(content=[
-        {"type": "text", "text": (
-            "You are MediBot, a medical AI assistant with expertise in dermatology. "
-            "Analyze this skin condition image and provide:\n\n"
-            "1. **Possible Conditions** — 2-3 most likely skin conditions with reasoning\n"
-            "2. **Key Visual Observations** — Color, texture, pattern, distribution\n"
-            "3. **Estimated Severity** — 🟢 Mild / 🟡 Moderate / 🔴 Severe\n"
-            "4. **Recommended Actions** — Self-care and whether to see a doctor\n"
-            "5. **When to Seek Immediate Help** — Red flags\n\n"
-            "⚠️ DISCLAIMER: AI visual assessment for educational purposes only. "
-            "Consult a dermatologist for accurate diagnosis."
-        )},
-        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "high"}},
-    ])
-    return llm.invoke([message]).content
+    client = OpenAI()
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": (
+                    "You are MediBot, a medical AI assistant with expertise in dermatology. "
+                    "Analyze this skin condition image and provide:\n\n"
+                    "1. **Possible Conditions** - 2-3 most likely skin conditions with reasoning\n"
+                    "2. **Key Visual Observations** - Color, texture, pattern, distribution\n"
+                    "3. **Estimated Severity** - Mild / Moderate / Severe\n"
+                    "4. **Recommended Actions** - Self-care and whether to see a doctor\n"
+                    "5. **When to Seek Immediate Help** - Red flags\n\n"
+                    "DISCLAIMER: AI visual assessment for educational purposes only. "
+                    "Consult a dermatologist for accurate diagnosis."
+                )},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "high"}},
+            ],
+        }],
+        max_tokens=1024,
+        temperature=0,
+    )
+    return response.choices[0].message.content
 
 
 # ══════════════════════════════════════════════════════════════
