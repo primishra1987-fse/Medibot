@@ -251,14 +251,19 @@ def transcribe_audio(audio_bytes: bytes) -> str:
 def analyze_skin_image(image_bytes: bytes, llm) -> str:
     """Analyze skin condition image using GPT-4o-mini vision via direct OpenAI client."""
     img = Image.open(io.BytesIO(image_bytes))
+    print(f"[VISION-v3] Original: {img.size}, mode={img.mode}")
     if img.mode in ("RGBA", "P", "LA"):
         img = img.convert("RGB")
     img.thumbnail((1024, 1024))
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85)
     b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+    print(f"[VISION-v3] Encoded: {img.size[0]}x{img.size[1]}px, base64={len(b64)} chars")
+    assert len(b64) > 100, f"Image encoding failed! base64 length={len(b64)}"
 
-    client = OpenAI()
+    api_key = os.environ.get("OPENAI_API_KEY", st.session_state.get("api_key", ""))
+    print(f"[VISION-v3] API key: {'found' if api_key else 'MISSING'} (len={len(api_key)})")
+    client = OpenAI(api_key=api_key)
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{
@@ -275,13 +280,15 @@ def analyze_skin_image(image_bytes: bytes, llm) -> str:
                     "DISCLAIMER: AI visual assessment for educational purposes only. "
                     "Consult a dermatologist for accurate diagnosis."
                 )},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "high"}},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "auto"}},
             ],
         }],
         max_tokens=1024,
         temperature=0,
     )
-    return response.choices[0].message.content
+    result = response.choices[0].message.content
+    print(f"[VISION-v3] Tokens: {response.usage.total_tokens}, preview: {result[:150]}")
+    return result
 
 
 # ══════════════════════════════════════════════════════════════

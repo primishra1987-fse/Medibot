@@ -247,19 +247,27 @@ def transcribe_audio(audio_filepath: str) -> str:
 
 def encode_image_to_base64(image_path: str, max_size: int = 1024) -> str:
     """Read, resize, and base64-encode an image."""
+    print(f"[VISION-v3] Encoding image: {image_path}")
     img = Image.open(image_path)
+    print(f"[VISION-v3] Original: {img.size}, mode={img.mode}")
     if img.mode in ("RGBA", "P", "LA"):
         img = img.convert("RGB")
     img.thumbnail((max_size, max_size))
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85)
-    return base64.b64encode(buf.getvalue()).decode("utf-8")
+    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+    print(f"[VISION-v3] Encoded: {img.size[0]}x{img.size[1]}px, base64={len(b64)} chars")
+    return b64
 
 
 def analyze_skin_condition(image_path: str) -> str:
     """Analyze a skin condition image using GPT-4o-mini vision via direct OpenAI client."""
+    print(f"[VISION-v3] analyze_skin_condition called with: {image_path}")
     b64 = encode_image_to_base64(image_path)
-    client = OpenAI()
+    assert len(b64) > 100, f"Image encoding failed! base64 length={len(b64)}"
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    print(f"[VISION-v3] API key: {'found' if api_key else 'MISSING'} (len={len(api_key)})")
+    client = OpenAI(api_key=api_key)
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{
@@ -276,13 +284,16 @@ def analyze_skin_condition(image_path: str) -> str:
                     "DISCLAIMER: This is an AI visual assessment for educational purposes only. "
                     "Always consult a qualified dermatologist for accurate diagnosis."
                 )},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "high"}},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "auto"}},
             ],
         }],
         max_tokens=1024,
         temperature=0,
     )
-    return response.choices[0].message.content
+    result = response.choices[0].message.content
+    print(f"[VISION-v3] Tokens used: {response.usage.total_tokens}")
+    print(f"[VISION-v3] Response preview: {result[:150]}")
+    return result
 
 
 def skin_analysis_with_followup(image_path: str, agent, thread_id: str = "gradio_skin") -> str:
