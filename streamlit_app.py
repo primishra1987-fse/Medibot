@@ -234,7 +234,8 @@ def ask_agent(agent, message: str, thread_id: str) -> str:
 
 def transcribe_audio(audio_bytes: bytes) -> str:
     """Transcribe audio bytes using OpenAI Whisper API."""
-    client = OpenAI()
+    api_key = os.environ.get("OPENAI_API_KEY", st.session_state.get("api_key", ""))
+    client = OpenAI(api_key=api_key)
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         tmp.write(audio_bytes)
         tmp_path = tmp.name
