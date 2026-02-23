@@ -248,6 +248,8 @@ def transcribe_audio(audio_filepath: str) -> str:
 def encode_image_to_base64(image_path: str, max_size: int = 1024) -> str:
     """Read, resize, and base64-encode an image."""
     img = Image.open(image_path)
+    if img.mode in ("RGBA", "P", "LA"):
+        img = img.convert("RGB")
     img.thumbnail((max_size, max_size))
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85)

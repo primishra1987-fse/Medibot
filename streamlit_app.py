@@ -251,6 +251,8 @@ def transcribe_audio(audio_bytes: bytes) -> str:
 def analyze_skin_image(image_bytes: bytes, llm) -> str:
     """Analyze skin condition image using GPT-4o-mini vision via direct OpenAI client."""
     img = Image.open(io.BytesIO(image_bytes))
+    if img.mode in ("RGBA", "P", "LA"):
+        img = img.convert("RGB")
     img.thumbnail((1024, 1024))
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85)
