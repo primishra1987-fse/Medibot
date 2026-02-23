@@ -1,0 +1,12 @@
+faiss-cpu
+langchain
+langchain-community
+langchain-huggingface
+langchain-openai
+langgraph
+sentence-transformers
+gradio
+openai
+pandas
+numpy
+Pillow
