@@ -354,11 +354,14 @@ with tab_text:
 # ────────────────────────────────────────
 with tab_voice:
     st.markdown("### Speak Your Symptoms")
-    st.markdown("Click the microphone below to record your symptoms, then click **Submit** to transcribe and analyze.")
+    st.markdown("**Step 1:** Click the microphone icon below and speak your symptoms.")
+    st.markdown("**Step 2:** Click stop when done. The audio will be transcribed and analyzed automatically.")
     st.markdown("*Powered by OpenAI Whisper — supports accents and handles background noise well.*")
 
     if "voice_messages" not in st.session_state:
         st.session_state.voice_messages = []
+    if "last_audio_size" not in st.session_state:
+        st.session_state.last_audio_size = 0
 
     # Display voice chat history
     for msg in st.session_state.voice_messages:
@@ -366,32 +369,39 @@ with tab_voice:
             st.markdown(msg["content"])
 
     # Native Streamlit audio input (microphone recording)
-    recorded_audio = st.audio_input("🎙️ Record your symptoms", key="voice_recorder")
+    recorded_audio = st.audio_input("Record your symptoms", key="voice_recorder")
 
-    if st.button("▶️ Submit Voice Input", type="primary", key="voice_btn"):
-        if recorded_audio is None:
-            st.warning("Please record your symptoms using the microphone first.")
-        else:
-            audio_bytes = recorded_audio.read()
+    # Process audio automatically when available (no separate Submit button)
+    if recorded_audio is not None:
+        # Read bytes and check if this is new audio
+        audio_bytes = recorded_audio.getvalue()
+        audio_size = len(audio_bytes)
+        st.caption(f"Audio captured: {audio_size:,} bytes")
+
+        if audio_size != st.session_state.last_audio_size and audio_size > 1000:
+            st.session_state.last_audio_size = audio_size
+
             try:
-                with st.spinner("Transcribing audio..."):
+                with st.spinner("Transcribing audio with Whisper..."):
                     transcript = transcribe_audio(audio_bytes)
             except Exception as e:
-                st.error(f"Could not transcribe audio: {e}")
+                st.error(f"Transcription error: {e}")
                 transcript = ""
 
             if not transcript.strip():
-                st.warning("No speech detected in the recording. Please try again.")
+                st.warning("No speech detected. Please try recording again — speak clearly into your microphone.")
             else:
-                st.session_state.voice_messages.append({"role": "user", "content": f"🎙️ [Voice]: {transcript}"})
+                st.session_state.voice_messages.append({"role": "user", "content": f"[Voice]: {transcript}"})
                 with st.chat_message("user"):
-                    st.markdown(f"🎙️ [Voice]: {transcript}")
+                    st.markdown(f"[Voice]: {transcript}")
 
                 with st.chat_message("assistant"):
                     with st.spinner("MediBot is analyzing..."):
                         response = ask_agent(agent, transcript, thread_id="st_voice")
                     st.markdown(response)
                 st.session_state.voice_messages.append({"role": "assistant", "content": response})
+        elif audio_size <= 1000:
+            st.warning("Recording too short. Please speak for at least a few seconds.")
 
     if st.button("🗑️ Clear Voice Chat", key="voice_clear"):
         st.session_state.voice_messages = []
