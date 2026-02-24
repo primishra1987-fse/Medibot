@@ -444,4 +444,4 @@ with gr.Blocks(
 
 # ── Launch ──
 if __name__ == "__main__":
-    demo.launch(share=True, debug=True)
+    demo.launch(share=True, debug=True, ssr_mode=False)
