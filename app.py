@@ -14,6 +14,17 @@ Environment Variables Required:
 
 import os
 os.environ["GRADIO_SSR_MODE"] = "false"
+
+# ── Fix gradio_client bug: get_type() crashes when schema is a bool ──
+# See: https://github.com/gradio-app/gradio/issues/11084
+import gradio_client.utils as _gc_utils
+_original_get_type = _gc_utils.get_type
+def _patched_get_type(schema):
+    if not isinstance(schema, dict):
+        return "Any"
+    return _original_get_type(schema)
+_gc_utils.get_type = _patched_get_type
+
 import base64
 import io
 import warnings

@@ -1,3 +1,14 @@
+---
+title: MediBot - AI Symptom Checker
+emoji: 🏥
+colorFrom: blue
+colorTo: green
+sdk: gradio
+sdk_version: 5.12.0
+app_file: app.py
+pinned: false
+---
+
 # 🏥 MediBot: AI-Powered Symptom Checker
 
 An intelligent medical symptom checker powered by a **Multi-Agent ReAct system**, **FAISS vector search**, and **OpenAI GPT-4o-mini** — with support for **text**, **voice**, and **image-based** input.
