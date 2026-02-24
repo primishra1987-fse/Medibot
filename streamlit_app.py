@@ -354,57 +354,88 @@ with tab_text:
 # ────────────────────────────────────────
 with tab_voice:
     st.markdown("### Speak Your Symptoms")
-    st.markdown("**Step 1:** Click the microphone icon below and speak your symptoms.")
-    st.markdown("**Step 2:** Click stop when done. The audio will be transcribed and analyzed automatically.")
     st.markdown("*Powered by OpenAI Whisper — supports accents and handles background noise well.*")
 
     if "voice_messages" not in st.session_state:
         st.session_state.voice_messages = []
     if "last_audio_size" not in st.session_state:
         st.session_state.last_audio_size = 0
+    if "voice_audio_bytes" not in st.session_state:
+        st.session_state.voice_audio_bytes = None
 
     # Display voice chat history
     for msg in st.session_state.voice_messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # Native Streamlit audio input (microphone recording)
-    recorded_audio = st.audio_input("Record your symptoms", key="voice_recorder")
+    # Two input options: microphone recording OR file upload
+    voice_method = st.radio(
+        "Choose input method:",
+        ["🎙️ Record with Microphone", "📁 Upload Audio File"],
+        horizontal=True,
+        key="voice_method",
+    )
 
-    # Process audio automatically when available (no separate Submit button)
-    if recorded_audio is not None:
-        # Read bytes and check if this is new audio
-        audio_bytes = recorded_audio.getvalue()
+    audio_bytes = None
+
+    if voice_method == "🎙️ Record with Microphone":
+        st.markdown("**Step 1:** Click the microphone icon and speak your symptoms.  \n"
+                     "**Step 2:** Click stop when done.")
+        recorded_audio = st.audio_input("Record your symptoms", key="voice_recorder")
+        if recorded_audio is not None:
+            audio_bytes = recorded_audio.getvalue()
+    else:
+        st.markdown("Upload a **WAV, MP3, or M4A** audio file of you describing your symptoms.")
+        uploaded_audio = st.file_uploader(
+            "Upload audio file",
+            type=["wav", "mp3", "m4a", "ogg", "webm", "mp4"],
+            key="voice_upload",
+        )
+        if uploaded_audio is not None:
+            audio_bytes = uploaded_audio.getvalue()
+
+    # Show audio preview and size if we have audio
+    if audio_bytes is not None:
         audio_size = len(audio_bytes)
-        st.caption(f"Audio captured: {audio_size:,} bytes")
+        st.audio(audio_bytes)
+        st.caption(f"Audio size: {audio_size:,} bytes")
 
-        if audio_size != st.session_state.last_audio_size and audio_size > 1000:
-            st.session_state.last_audio_size = audio_size
+        if audio_size > 1000:
+            st.session_state.voice_audio_bytes = audio_bytes
+        else:
+            st.warning("Audio too short or empty. Please try again.")
+            st.session_state.voice_audio_bytes = None
 
+    # Transcribe button — user clicks after verifying playback
+    if st.button("🎯 Transcribe & Analyze", type="primary", key="voice_submit"):
+        if st.session_state.voice_audio_bytes is None:
+            st.warning("Please record or upload audio first.")
+        else:
+            ab = st.session_state.voice_audio_bytes
             try:
                 with st.spinner("Transcribing audio with Whisper..."):
-                    transcript = transcribe_audio(audio_bytes)
+                    transcript = transcribe_audio(ab)
             except Exception as e:
                 st.error(f"Transcription error: {e}")
                 transcript = ""
 
             if not transcript.strip():
-                st.warning("No speech detected. Please try recording again — speak clearly into your microphone.")
+                st.warning("No speech detected. Please try again — speak clearly into your microphone, "
+                           "or try uploading an audio file instead.")
             else:
-                st.session_state.voice_messages.append({"role": "user", "content": f"[Voice]: {transcript}"})
+                st.session_state.voice_messages.append({"role": "user", "content": f"🎙️ *[Voice]:* {transcript}"})
                 with st.chat_message("user"):
-                    st.markdown(f"[Voice]: {transcript}")
+                    st.markdown(f"🎙️ *[Voice]:* {transcript}")
 
                 with st.chat_message("assistant"):
                     with st.spinner("MediBot is analyzing..."):
                         response = ask_agent(agent, transcript, thread_id="st_voice")
                     st.markdown(response)
                 st.session_state.voice_messages.append({"role": "assistant", "content": response})
-        elif audio_size <= 1000:
-            st.warning("Recording too short. Please speak for at least a few seconds.")
 
     if st.button("🗑️ Clear Voice Chat", key="voice_clear"):
         st.session_state.voice_messages = []
+        st.session_state.voice_audio_bytes = None
         st.rerun()
 
 # ────────────────────────────────────────

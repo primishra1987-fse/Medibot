@@ -10,3 +10,4 @@ openai
 pandas
 numpy
 Pillow
+streamlit>=1.42.0

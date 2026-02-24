@@ -15,15 +15,33 @@ Environment Variables Required:
 import os
 os.environ["GRADIO_SSR_MODE"] = "false"
 
-# ── Fix gradio_client bug: get_type() crashes when schema is a bool ──
+# ── Fix gradio_client bug: schema can be a bool instead of dict ──
 # See: https://github.com/gradio-app/gradio/issues/11084
 import gradio_client.utils as _gc_utils
-_original_get_type = _gc_utils.get_type
-def _patched_get_type(schema):
-    if not isinstance(schema, dict):
-        return "Any"
-    return _original_get_type(schema)
-_gc_utils.get_type = _patched_get_type
+
+if hasattr(_gc_utils, "get_type"):
+    _orig_get_type = _gc_utils.get_type
+    def _patched_get_type(schema):
+        if not isinstance(schema, dict):
+            return "Any"
+        return _orig_get_type(schema)
+    _gc_utils.get_type = _patched_get_type
+
+if hasattr(_gc_utils, "_json_schema_to_python_type"):
+    _orig_js2pt = _gc_utils._json_schema_to_python_type
+    def _patched_js2pt(schema, defs=None):
+        if not isinstance(schema, dict):
+            return "Any"
+        return _orig_js2pt(schema, defs)
+    _gc_utils._json_schema_to_python_type = _patched_js2pt
+
+if hasattr(_gc_utils, "json_schema_to_python_type"):
+    _orig_js2pt_pub = _gc_utils.json_schema_to_python_type
+    def _patched_js2pt_pub(schema):
+        if not isinstance(schema, dict):
+            return "Any"
+        return _orig_js2pt_pub(schema)
+    _gc_utils.json_schema_to_python_type = _patched_js2pt_pub
 
 import base64
 import io
