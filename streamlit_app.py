@@ -119,13 +119,14 @@ def init_medibot():
         """Diagnose possible diseases based on patient symptoms.
         Use this tool when a user describes their symptoms and wants to know
         what disease or condition they might have."""
-        results = vectorstore.similarity_search(symptoms, k=10)
-        disease_results = [r for r in results if r.metadata.get("source") == "disease_symptoms"]
+        results = vectorstore.similarity_search_with_score(symptoms, k=10)
+        disease_results = [(doc, score) for doc, score in results
+                           if doc.metadata.get("source") == "disease_symptoms" and score < 1.3]
         if not disease_results:
             return "I couldn't find matching diseases. Please try describing your symptoms differently."
         output = "Based on the symptoms described, here are the possible conditions:\n\n"
         seen = set()
-        for i, doc in enumerate(disease_results[:5], 1):
+        for i, (doc, score) in enumerate(disease_results[:5], 1):
             d = doc.metadata["disease"]
             if d not in seen:
                 seen.add(d)
@@ -137,13 +138,18 @@ def init_medibot():
     def assess_severity(symptoms: str) -> str:
         """Assess the severity of patient symptoms and provide an urgency level.
         Use this tool when a user wants to know how serious their symptoms are."""
-        results = vectorstore.similarity_search(symptoms, k=15)
-        severity_results = [r for r in results if r.metadata.get("source") == "severity"]
+        results = vectorstore.similarity_search_with_score(symptoms, k=10)
+        severity_results = [(doc, score) for doc, score in results
+                            if doc.metadata.get("source") == "severity" and score < 1.2]
         symptom_weights, seen = [], set()
-        for doc in severity_results:
+        query_lower = symptoms.lower().replace("_", " ")
+        for doc, score in severity_results:
             name = doc.metadata.get("symptom", "")
             weight = doc.metadata.get("weight", 0)
-            if name and name not in seen:
+            name_words = name.lower().replace("_", " ")
+            has_overlap = any(word in query_lower for word in name_words.split()
+                             if len(word) > 3)
+            if name and name not in seen and (has_overlap or score < 0.8):
                 seen.add(name)
                 symptom_weights.append((name, weight))
         if not symptom_weights:
