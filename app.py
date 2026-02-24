@@ -13,6 +13,7 @@ Environment Variables Required:
 """
 
 import os
+os.environ["GRADIO_SSR_MODE"] = "false"
 import base64
 import io
 import warnings
@@ -444,4 +445,4 @@ with gr.Blocks(
 
 # ── Launch ──
 if __name__ == "__main__":
-    demo.launch(share=True, debug=True, ssr_mode=False)
+    demo.launch(share=True, debug=True)
