@@ -233,11 +233,18 @@ def transcribe_audio(audio_filepath: str) -> str:
     """Transcribe audio to text using OpenAI Whisper API."""
     if audio_filepath is None:
         return ""
-    client = OpenAI()
+    file_size = os.path.getsize(audio_filepath)
+    print(f"[VOICE] Audio file: {audio_filepath}, size: {file_size} bytes")
+    if file_size < 1000:
+        print("[VOICE] Audio file too small, likely empty recording")
+        return ""
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    client = OpenAI(api_key=api_key)
     with open(audio_filepath, "rb") as f:
         transcript = client.audio.transcriptions.create(
             model="whisper-1", file=f, response_format="text",
         )
+    print(f"[VOICE] Transcript: {transcript[:100]}")
     return transcript.strip()
 
 
@@ -398,7 +405,7 @@ with gr.Blocks(
         with gr.Tab("🎙️ Voice Input"):
             gr.Markdown("### Speak Your Symptoms\n**Record** via microphone or **upload** an audio file (WAV, MP3, M4A), then click **Submit Voice Input**.\n*Powered by OpenAI Whisper*")
             voice_chatbot = gr.Chatbot(label="Voice Conversation", height=400, type="messages")
-            voice_audio = gr.Audio(sources=["microphone", "upload"], type="filepath", label="🎙️ Record or Upload Audio")
+            voice_audio = gr.Audio(sources=["microphone", "upload"], type="filepath", format="wav", label="🎙️ Record or Upload Audio")
             with gr.Row():
                 voice_submit = gr.Button("▶️ Submit Voice Input", variant="primary", size="lg")
                 voice_clear = gr.Button("🗑️ Clear")
