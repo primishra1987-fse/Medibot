@@ -235,19 +235,17 @@ def ask_agent(agent, message: str, thread_id: str) -> str:
 
 def transcribe_audio(audio_bytes: bytes) -> str:
     """Transcribe audio bytes using OpenAI Whisper API."""
+    if not audio_bytes or len(audio_bytes) < 1000:
+        return ""
     api_key = os.environ.get("OPENAI_API_KEY", st.session_state.get("api_key", ""))
     client = OpenAI(api_key=api_key)
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-        tmp.write(audio_bytes)
-        tmp_path = tmp.name
-    try:
-        with open(tmp_path, "rb") as f:
-            transcript = client.audio.transcriptions.create(
-                model="whisper-1", file=f, response_format="text",
-            )
-        return transcript.strip()
-    finally:
-        os.unlink(tmp_path)
+    # Use tuple format (filename, bytes, content_type) for reliable format detection
+    transcript = client.audio.transcriptions.create(
+        model="whisper-1",
+        file=("recording.wav", audio_bytes, "audio/wav"),
+        response_format="text",
+    )
+    return transcript.strip()
 
 
 def analyze_skin_image(image_bytes: bytes, llm) -> str:
@@ -382,8 +380,12 @@ with tab_voice:
         st.session_state.last_recorded_audio = recorded_audio
         st.audio(recorded_audio, format="audio/wav")
 
-        with st.spinner("Transcribing recorded audio..."):
-            transcript = transcribe_audio(recorded_audio)
+        try:
+            with st.spinner("Transcribing recorded audio..."):
+                transcript = transcribe_audio(recorded_audio)
+        except Exception as e:
+            st.error(f"Could not transcribe audio: {e}")
+            transcript = ""
 
         if not transcript.strip():
             st.warning("No speech detected in the recording. Please try again.")
