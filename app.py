@@ -13,6 +13,7 @@ Environment Variables Required:
 """
 
 import os
+os.environ["GRADIO_SSR_MODE"] = "false"
 import base64
 import io
 import warnings
