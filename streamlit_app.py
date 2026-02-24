@@ -24,7 +24,6 @@ import pandas as pd
 import streamlit as st
 from PIL import Image
 from openai import OpenAI
-from streamlit_mic_recorder import mic_recorder
 from langchain_openai import ChatOpenAI
 from langchain_core.documents import Document
 from langchain_core.tools import tool
@@ -349,8 +348,7 @@ with tab_text:
 # ────────────────────────────────────────
 with tab_voice:
     st.markdown("### Speak Your Symptoms")
-    st.markdown("**Option A — Record:** Click **Start** to record, **Stop** when done.")
-    st.markdown("**Option B — Upload:** Upload a pre-recorded audio file (WAV, MP3, M4A).")
+    st.markdown("Click the microphone below to record your symptoms, then click **Submit** to transcribe and analyze.")
     st.markdown("*Powered by OpenAI Whisper — supports accents and handles background noise well.*")
 
     if "voice_messages" not in st.session_state:
@@ -361,54 +359,17 @@ with tab_voice:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # Option A: Microphone recording with explicit Start/Stop buttons
-    st.markdown("---")
-    st.markdown("**Record from microphone:**")
-    audio = mic_recorder(
-        start_prompt="🎙️ Start Recording",
-        stop_prompt="⏹️ Stop Recording",
-        just_once=False,
-        use_container_width=True,
-        key="mic_recorder",
-    )
+    # Native Streamlit audio input (microphone recording)
+    recorded_audio = st.audio_input("🎙️ Record your symptoms", key="voice_recorder")
 
-    if audio and audio.get("bytes"):
-        audio_bytes = audio["bytes"]
-        st.audio(audio_bytes, format="audio/wav")
-
-        try:
-            with st.spinner("Transcribing recorded audio..."):
-                transcript = transcribe_audio(audio_bytes)
-        except Exception as e:
-            st.error(f"Could not transcribe audio: {e}")
-            transcript = ""
-
-        if not transcript.strip():
-            st.warning("No speech detected in the recording. Please try again.")
+    if st.button("▶️ Submit Voice Input", type="primary", key="voice_btn"):
+        if recorded_audio is None:
+            st.warning("Please record your symptoms using the microphone first.")
         else:
-            st.session_state.voice_messages.append({"role": "user", "content": f"🎙️ [Voice]: {transcript}"})
-            with st.chat_message("user"):
-                st.markdown(f"🎙️ [Voice]: {transcript}")
-
-            with st.chat_message("assistant"):
-                with st.spinner("MediBot is analyzing..."):
-                    response = ask_agent(agent, transcript, thread_id="st_voice")
-                st.markdown(response)
-            st.session_state.voice_messages.append({"role": "assistant", "content": response})
-
-    # Option B: File upload
-    st.markdown("---")
-    st.markdown("**Or upload an audio file:**")
-    audio_file = st.file_uploader("Upload audio file (WAV, MP3, M4A)", type=["wav", "mp3", "m4a", "webm", "ogg"], key="voice_upload")
-
-    if st.button("▶️ Submit Uploaded Audio", type="primary", key="voice_btn"):
-        if audio_file is None:
-            st.warning("Please upload an audio file first.")
-        else:
-            uploaded_bytes = audio_file.read()
+            audio_bytes = recorded_audio.read()
             try:
                 with st.spinner("Transcribing audio..."):
-                    transcript = transcribe_audio(uploaded_bytes)
+                    transcript = transcribe_audio(audio_bytes)
             except Exception as e:
                 st.error(f"Could not transcribe audio: {e}")
                 transcript = ""

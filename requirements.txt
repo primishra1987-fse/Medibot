@@ -10,5 +10,4 @@ openai
 pandas
 numpy
 Pillow
-streamlit-mic-recorder
 streamlit>=1.42.0
