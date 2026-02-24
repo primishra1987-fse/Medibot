@@ -103,7 +103,12 @@ print(f"FAISS index ready — {vectorstore.index.ntotal} vectors.")
 # 2. INITIALIZE LLM
 # ══════════════════════════════════════════════════════════════
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, max_tokens=1024)
+api_key = os.environ.get("OPENAI_API_KEY", "")
+if not api_key:
+    raise ValueError("OPENAI_API_KEY not found. Set it as an environment variable or HF Space secret.")
+print(f"OpenAI API key found (length={len(api_key)})")
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, max_tokens=1024, api_key=api_key)
 
 # ══════════════════════════════════════════════════════════════
 # 3. DEFINE TOOLS
