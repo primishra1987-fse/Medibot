@@ -19,13 +19,12 @@ import os
 import base64
 import io
 import warnings
-import tempfile
 
 import pandas as pd
 import streamlit as st
 from PIL import Image
 from openai import OpenAI
-from audio_recorder_streamlit import audio_recorder
+from streamlit_mic_recorder import mic_recorder
 from langchain_openai import ChatOpenAI
 from langchain_core.documents import Document
 from langchain_core.tools import tool
@@ -350,7 +349,7 @@ with tab_text:
 # ────────────────────────────────────────
 with tab_voice:
     st.markdown("### Speak Your Symptoms")
-    st.markdown("**Option A — Record:** Click the microphone icon below to record your symptoms directly.")
+    st.markdown("**Option A — Record:** Click **Start** to record, **Stop** when done.")
     st.markdown("**Option B — Upload:** Upload a pre-recorded audio file (WAV, MP3, M4A).")
     st.markdown("*Powered by OpenAI Whisper — supports accents and handles background noise well.*")
 
@@ -362,27 +361,24 @@ with tab_voice:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # Option A: Microphone recording
+    # Option A: Microphone recording with explicit Start/Stop buttons
     st.markdown("---")
     st.markdown("**Record from microphone:**")
-    recorded_audio = audio_recorder(
-        text="Click to record",
-        recording_color="#e74c3c",
-        neutral_color="#3498db",
-        icon_size="2x",
-        pause_threshold=3.0,
+    audio = mic_recorder(
+        start_prompt="🎙️ Start Recording",
+        stop_prompt="⏹️ Stop Recording",
+        just_once=False,
+        use_container_width=True,
+        key="mic_recorder",
     )
 
-    if recorded_audio and "last_recorded_audio" not in st.session_state:
-        st.session_state.last_recorded_audio = None
-
-    if recorded_audio and recorded_audio != st.session_state.get("last_recorded_audio"):
-        st.session_state.last_recorded_audio = recorded_audio
-        st.audio(recorded_audio, format="audio/wav")
+    if audio and audio.get("bytes"):
+        audio_bytes = audio["bytes"]
+        st.audio(audio_bytes, format="audio/wav")
 
         try:
             with st.spinner("Transcribing recorded audio..."):
-                transcript = transcribe_audio(recorded_audio)
+                transcript = transcribe_audio(audio_bytes)
         except Exception as e:
             st.error(f"Could not transcribe audio: {e}")
             transcript = ""
@@ -409,9 +405,13 @@ with tab_voice:
         if audio_file is None:
             st.warning("Please upload an audio file first.")
         else:
-            audio_bytes = audio_file.read()
-            with st.spinner("Transcribing audio..."):
-                transcript = transcribe_audio(audio_bytes)
+            uploaded_bytes = audio_file.read()
+            try:
+                with st.spinner("Transcribing audio..."):
+                    transcript = transcribe_audio(uploaded_bytes)
+            except Exception as e:
+                st.error(f"Could not transcribe audio: {e}")
+                transcript = ""
 
             if not transcript.strip():
                 st.warning("No speech detected in the recording. Please try again.")
