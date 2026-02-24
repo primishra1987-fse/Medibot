@@ -375,20 +375,29 @@ def chat_with_medibot_core(message: str, thread_id: str = "gradio_text") -> str:
         return f"Error: {e}"
 
 
-def text_chat(message, history):
-    return chat_with_medibot_core(message, thread_id="gradio_text")
+def text_chat(message, chat_history):
+    if chat_history is None:
+        chat_history = []
+    if not message or not message.strip():
+        return chat_history, ""
+    chat_history.append({"role": "user", "content": message})
+    response = chat_with_medibot_core(message, thread_id="gradio_text")
+    chat_history.append({"role": "assistant", "content": response})
+    return chat_history, ""
 
 
 def voice_chat(audio_filepath, chat_history):
     if chat_history is None:
         chat_history = []
     if audio_filepath is None:
-        chat_history.append({"role": "assistant", "content": "⚠️ Please record or upload an audio file with your symptoms first."})
+        chat_history.append({"role": "assistant", "content": "⚠️ No audio received. Please record or upload an audio file first.\n\n**Tip:** Click the microphone icon, speak, then click **Stop** before pressing Submit."})
         return chat_history, None
     try:
+        file_size = os.path.getsize(audio_filepath)
+        print(f"[VOICE-HANDLER] Received audio: {audio_filepath}, size: {file_size} bytes")
         transcript = transcribe_audio(audio_filepath)
         if not transcript.strip():
-            chat_history.append({"role": "assistant", "content": "⚠️ No speech detected. Please try again."})
+            chat_history.append({"role": "assistant", "content": f"⚠️ No speech detected (file: {file_size} bytes). Please try again or upload a pre-recorded audio file."})
             return chat_history, None
         chat_history.append({"role": "user", "content": f"🎙️ [Voice]: {transcript}"})
         response = chat_with_medibot_core(transcript, thread_id="gradio_voice")
@@ -433,22 +442,30 @@ with gr.Blocks(
     with gr.Tabs():
         # Tab 1: Text Chat
         with gr.Tab("💬 Text Chat"):
-            gr.Markdown("### Type Your Symptoms")
-            gr.ChatInterface(
-                fn=text_chat,
+            gr.Markdown("### Type Your Symptoms\nDescribe your symptoms in natural language, ask about diseases, check severity, or get precautionary advice.")
+            text_chatbot = gr.Chatbot(label="MediBot Chat", height=400, type="messages")
+            text_input = gr.Textbox(placeholder="e.g. I have been experiencing itching, skin rash...", label="Your Message", lines=2)
+            with gr.Row():
+                text_submit = gr.Button("▶️ Send", variant="primary", size="lg")
+                text_clear = gr.Button("🗑️ Clear")
+            gr.Examples(
                 examples=[
                     "I have been experiencing itching, skin rash, and nodal skin eruptions",
                     "How serious is having a high fever with vomiting and headache?",
                     "What is diabetes?",
                     "What precautions should I take for malaria?",
                 ],
+                inputs=text_input,
             )
+            text_submit.click(fn=text_chat, inputs=[text_input, text_chatbot], outputs=[text_chatbot, text_input])
+            text_input.submit(fn=text_chat, inputs=[text_input, text_chatbot], outputs=[text_chatbot, text_input])
+            text_clear.click(fn=lambda: ([], ""), inputs=None, outputs=[text_chatbot, text_input])
 
         # Tab 2: Voice Input
         with gr.Tab("🎙️ Voice Input"):
             gr.Markdown("### Speak Your Symptoms\n**Record** via microphone or **upload** an audio file (WAV, MP3, M4A), then click **Submit Voice Input**.\n*Powered by OpenAI Whisper*")
             voice_chatbot = gr.Chatbot(label="Voice Conversation", height=400, type="messages")
-            voice_audio = gr.Audio(sources=["microphone", "upload"], type="filepath", format="wav", label="🎙️ Record or Upload Audio")
+            voice_audio = gr.Audio(sources=["microphone", "upload"], type="filepath", label="🎙️ Record or Upload Audio")
             with gr.Row():
                 voice_submit = gr.Button("▶️ Submit Voice Input", variant="primary", size="lg")
                 voice_clear = gr.Button("🗑️ Clear")

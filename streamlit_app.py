@@ -237,16 +237,37 @@ def ask_agent(agent, message: str, thread_id: str) -> str:
         return f"Error: {e}"
 
 
+def detect_audio_format(audio_bytes: bytes) -> tuple:
+    """Detect audio format from magic bytes. Returns (extension, mime_type)."""
+    if len(audio_bytes) < 12:
+        return "wav", "audio/wav"
+    header = audio_bytes[:12]
+    if header[:4] == b"RIFF" and header[8:12] == b"WAVE":
+        return "wav", "audio/wav"
+    if header[:4] == b"\x1a\x45\xdf\xa3":  # EBML header (WebM/Matroska)
+        return "webm", "audio/webm"
+    if header[:3] == b"ID3" or header[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"):
+        return "mp3", "audio/mpeg"
+    if header[4:8] in (b"ftyp", b"moov", b"mdat"):
+        return "m4a", "audio/mp4"
+    if header[:4] == b"OggS":
+        return "ogg", "audio/ogg"
+    if header[:4] == b"fLaC":
+        return "flac", "audio/flac"
+    # Default: let Whisper auto-detect by using a generic name
+    return "webm", "audio/webm"
+
+
 def transcribe_audio(audio_bytes: bytes) -> str:
-    """Transcribe audio bytes using OpenAI Whisper API."""
-    if not audio_bytes or len(audio_bytes) < 1000:
+    """Transcribe audio bytes using OpenAI Whisper API with format auto-detection."""
+    if not audio_bytes or len(audio_bytes) < 100:
         return ""
+    ext, mime = detect_audio_format(audio_bytes)
     api_key = os.environ.get("OPENAI_API_KEY", st.session_state.get("api_key", ""))
     client = OpenAI(api_key=api_key)
-    # Use tuple format (filename, bytes, content_type) for reliable format detection
     transcript = client.audio.transcriptions.create(
         model="whisper-1",
-        file=("recording.wav", audio_bytes, "audio/wav"),
+        file=(f"recording.{ext}", audio_bytes, mime),
         response_format="text",
     )
     return transcript.strip()
@@ -353,13 +374,11 @@ with tab_text:
 # TAB 2: VOICE INPUT
 # ────────────────────────────────────────
 with tab_voice:
-    st.markdown("### Speak Your Symptoms")
-    st.markdown("*Powered by OpenAI Whisper — supports accents and handles background noise well.*")
+    st.markdown("### Voice Symptom Input")
+    st.markdown("*Powered by OpenAI Whisper — supports multiple languages, accents, and background noise.*")
 
     if "voice_messages" not in st.session_state:
         st.session_state.voice_messages = []
-    if "last_audio_size" not in st.session_state:
-        st.session_state.last_audio_size = 0
     if "voice_audio_bytes" not in st.session_state:
         st.session_state.voice_audio_bytes = None
 
@@ -368,50 +387,60 @@ with tab_voice:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # Two input options: microphone recording OR file upload
-    voice_method = st.radio(
-        "Choose input method:",
-        ["🎙️ Record with Microphone", "📁 Upload Audio File"],
-        horizontal=True,
-        key="voice_method",
+    # ── Option A: Upload audio file (most reliable) ──
+    st.markdown("#### Option 1: Upload Audio File (Recommended)")
+    st.markdown("Record a voice memo on your phone or computer, then upload it here.")
+    uploaded_audio = st.file_uploader(
+        "Upload audio file (WAV, MP3, M4A, OGG, WebM)",
+        type=["wav", "mp3", "m4a", "ogg", "webm", "mp4", "flac"],
+        key="voice_upload",
     )
 
+    # ── Option B: Browser microphone ──
+    st.markdown("#### Option 2: Record in Browser")
+    st.markdown("Click the mic icon, speak, then click stop. "
+                "*Note: Browser mic may not work on all devices — use Option 1 if it captures silence.*")
+    recorded_audio = st.audio_input("Record your symptoms", key="voice_recorder")
+
+    # ── Determine which audio source to use (upload takes priority) ──
     audio_bytes = None
+    audio_source = None
 
-    if voice_method == "🎙️ Record with Microphone":
-        st.markdown("**Step 1:** Click the microphone icon and speak your symptoms.  \n"
-                     "**Step 2:** Click stop when done.")
-        recorded_audio = st.audio_input("Record your symptoms", key="voice_recorder")
-        if recorded_audio is not None:
-            audio_bytes = recorded_audio.getvalue()
-    else:
-        st.markdown("Upload a **WAV, MP3, or M4A** audio file of you describing your symptoms.")
-        uploaded_audio = st.file_uploader(
-            "Upload audio file",
-            type=["wav", "mp3", "m4a", "ogg", "webm", "mp4"],
-            key="voice_upload",
-        )
-        if uploaded_audio is not None:
-            audio_bytes = uploaded_audio.getvalue()
+    if uploaded_audio is not None:
+        audio_bytes = uploaded_audio.getvalue()
+        audio_source = "uploaded file"
+    elif recorded_audio is not None:
+        audio_bytes = recorded_audio.getvalue()
+        audio_source = "browser mic"
 
-    # Show audio preview and size if we have audio
+    # ── Show audio info and preview ──
     if audio_bytes is not None:
         audio_size = len(audio_bytes)
-        st.audio(audio_bytes)
-        st.caption(f"Audio size: {audio_size:,} bytes")
+        ext, mime = detect_audio_format(audio_bytes)
 
-        if audio_size > 1000:
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Source", audio_source)
+        col2.metric("Size", f"{audio_size:,} bytes")
+        col3.metric("Format", ext.upper())
+
+        # Playback — verify audio has sound BEFORE transcribing
+        st.audio(audio_bytes, format=mime)
+
+        if audio_size > 100:
             st.session_state.voice_audio_bytes = audio_bytes
         else:
-            st.warning("Audio too short or empty. Please try again.")
+            st.warning("Audio too short or empty.")
             st.session_state.voice_audio_bytes = None
 
-    # Transcribe button — user clicks after verifying playback
+    # ── Transcribe button ──
     if st.button("🎯 Transcribe & Analyze", type="primary", key="voice_submit"):
         if st.session_state.voice_audio_bytes is None:
             st.warning("Please record or upload audio first.")
         else:
             ab = st.session_state.voice_audio_bytes
+            ext, mime = detect_audio_format(ab)
+            st.caption(f"Sending {len(ab):,} bytes ({ext}) to Whisper API...")
+
             try:
                 with st.spinner("Transcribing audio with Whisper..."):
                     transcript = transcribe_audio(ab)
@@ -420,9 +449,10 @@ with tab_voice:
                 transcript = ""
 
             if not transcript.strip():
-                st.warning("No speech detected. Please try again — speak clearly into your microphone, "
-                           "or try uploading an audio file instead.")
+                st.warning("No speech detected. If you used the browser mic, try **Option 1** "
+                           "(upload a recorded audio file) instead.")
             else:
+                st.success(f"Transcribed: *{transcript}*")
                 st.session_state.voice_messages.append({"role": "user", "content": f"🎙️ *[Voice]:* {transcript}"})
                 with st.chat_message("user"):
                     st.markdown(f"🎙️ *[Voice]:* {transcript}")
