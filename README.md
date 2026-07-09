@@ -162,6 +162,7 @@ Open `MediBot.ipynb` and run all cells sequentially.
 ## Deployment
 
 ### Deploy to Hugging Face Spaces (Gradio)
+Deployed link - https://huggingface.co/spaces/primishra1987/medibotAssistant
 
 1. Create a new Space at [huggingface.co/new-space](https://huggingface.co/new-space)
    - Select **Gradio** as the SDK
