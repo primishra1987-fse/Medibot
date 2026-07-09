@@ -11,7 +11,14 @@ pinned: false
 
 # 🏥 MediBot: AI-Powered Symptom Checker
 
-An intelligent medical symptom checker powered by a **Multi-Agent ReAct system**, **FAISS vector search**, and **OpenAI GPT-4o-mini** — with support for **text**, **voice**, and **image-based** input.
+
+[![Live Demo](https://img.shields.io/badge/%F0%9F%A4%97%20Live%20Demo-Hugging%20Face%20Spaces-blue)](https://huggingface.co/spaces/primishra1987/medibotAssistant)
+
+**▶️ [Try it live](https://huggingface.co/spaces/primishra1987/medibotAssistant)** — no install required.
+
+An intelligent medical symptom checker powered by a **Multi-Agent ReAct system**,
+**FAISS vector search**, and **OpenAI GPT-4o-mini** — with support for **text**,
+**voice**, and **image-based** input.
 
 > **Disclaimer:** MediBot is an AI educational tool. It is NOT a substitute for professional medical advice, diagnosis, or treatment. Always consult a healthcare provider.
 
